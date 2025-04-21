@@ -13,7 +13,7 @@ import org.vaadin.lineawesome.LineAwesomeIconUrl;
 
 @PageTitle("Empty")
 @Route("empty")
-@Menu(order = 2, icon = LineAwesomeIconUrl.FILE)
+@Menu(order = 3, icon = LineAwesomeIconUrl.FILE)
 @RolesAllowed("ADMIN")
 public class EmptyView extends VerticalLayout {
 

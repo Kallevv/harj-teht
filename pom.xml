@@ -5,8 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
     <!-- Project from https://start.vaadin.com/project/dd932cb6-7c5c-4cfa-9854-7c87592b9a2e -->
     <groupId>com.example.application</groupId>
-    <artifactId>security-test</artifactId>
-    <name>security-test</name>
+    <artifactId>harj-teht</artifactId>
+    <name>harj-teht</name>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 

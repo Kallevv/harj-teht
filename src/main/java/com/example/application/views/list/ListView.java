@@ -10,6 +10,7 @@ import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -23,115 +24,119 @@ import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.RolesAllowed;
 import org.vaadin.lineawesome.LineAwesomeIconUrl;
 
+import com.vaadin.flow.component.HasComponents;
+import com.vaadin.flow.component.HasStyle;
+import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.Main;
+import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.theme.lumo.LumoUtility.AlignItems;
+import com.vaadin.flow.theme.lumo.LumoUtility.FontSize;
+import com.vaadin.flow.theme.lumo.LumoUtility.JustifyContent;
+import com.vaadin.flow.theme.lumo.LumoUtility.Margin;
+import com.vaadin.flow.theme.lumo.LumoUtility.MaxWidth;
+import com.vaadin.flow.theme.lumo.LumoUtility.Padding;
+import com.vaadin.flow.theme.lumo.LumoUtility.TextColor;
+
 import java.time.LocalDate;
 
-@PageTitle("List view")
+@PageTitle("Person List")
 @Route("list")
-@Menu(order = 1, icon = LineAwesomeIconUrl.TH_LIST_SOLID)
+@Menu(order = 2, icon = LineAwesomeIconUrl.TH_LIST_SOLID)
 @RolesAllowed("USER")
-public class ListView extends VerticalLayout {
+public class ListView extends Main implements HasComponents, HasStyle {
 
     private final PersonService personService;
-    private final MeasurementService measurementService;
-
     private final Grid<Person> personGrid = new Grid<>(Person.class, false);
-    private final Grid<Measurement> measurementGrid = new Grid<>(Measurement.class, false);
+    private final TextField searchField = new TextField();
     private final Dialog formDialog = new Dialog();
     private final Binder<Person> binder = new Binder<>(Person.class);
 
-    public ListView(PersonService personService, MeasurementService measurementService) {
+    public ListView(PersonService personService) {
         this.personService = personService;
-        this.measurementService = measurementService;
 
-        configureGrids();
+        setSizeFull();
+
+        addClassNames("person-list-view");
+        addClassNames(MaxWidth.SCREEN_LARGE, Margin.Horizontal.AUTO, Padding.Bottom.LARGE, Padding.Horizontal.LARGE);
+
+        constructUI();
+        configureGrid();
         configureFormDialog();
-        setupLayout();
+
         updatePersonList();
     }
 
-    private void configureGrids() {
-        // Person Grid
+    private void constructUI() {
+        // Header section
+        HorizontalLayout container = new HorizontalLayout();
+        container.addClassNames(AlignItems.CENTER, JustifyContent.BETWEEN);
+
+        VerticalLayout headerContainer = new VerticalLayout();
+        H2 header = new H2("Registered People");
+        header.addClassNames(Margin.Bottom.NONE, Margin.Top.XLARGE, FontSize.XXXLARGE);
+        Paragraph description = new Paragraph("List of users and their information");
+        description.addClassNames(Margin.Bottom.XLARGE, Margin.Top.NONE, TextColor.SECONDARY);
+        headerContainer.add(header, description);
+
+        Button addButton = new Button("Add Person", e -> showForm(new Person()));
+        addButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        container.add(headerContainer, addButton);
+
+        // Search
+        searchField.setPlaceholder("Filter by last name...");
+        searchField.setPrefixComponent(VaadinIcon.SEARCH.create());
+        searchField.setClearButtonVisible(true);
+        searchField.setWidth("300px");
+        searchField.addValueChangeListener(e -> updatePersonList(e.getValue()));
+
+        VerticalLayout layout = new VerticalLayout(container, searchField, personGrid);
+        layout.setPadding(false);
+        layout.setSpacing(true);
+        layout.setSizeFull();
+
+        add(layout);
+    }
+
+    private void configureGrid() {
+        personGrid.addClassNames(Margin.Top.MEDIUM);
+        personGrid.setSizeFull();
+
         personGrid.addColumn(Person::getFirstName).setHeader("First Name").setAutoWidth(true);
         personGrid.addColumn(Person::getLastName).setHeader("Last Name").setAutoWidth(true);
         personGrid.addColumn(Person::getEmail).setHeader("Email").setAutoWidth(true);
         personGrid.addColumn(Person::getBirthDate).setHeader("Birth Date").setAutoWidth(true);
-
-        personGrid.asSingleSelect().addValueChangeListener(event -> {
-            if (event.getValue() != null) {
-                updateMeasurementList(event.getValue().getId());
-            }
-        });
-
-        // Measurement Grid
-        measurementGrid.addColumn(Measurement::getTimestamp).setHeader("Timestamp").setAutoWidth(true);
-        measurementGrid.addColumn(Measurement::getType).setHeader("Type").setAutoWidth(true);
-        measurementGrid.addColumn(Measurement::getValue).setHeader("Value").setAutoWidth(true);
     }
 
     private void configureFormDialog() {
         formDialog.setWidth("400px");
 
-        // Form fields
         TextField firstName = new TextField("First Name");
         TextField lastName = new TextField("Last Name");
         EmailField email = new EmailField("Email");
         DatePicker birthDate = new DatePicker("Birth Date");
         birthDate.setMax(LocalDate.now());
 
-        // Form buttons
+        FormLayout formLayout = new FormLayout(firstName, lastName, email, birthDate);
+        formLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
+
         Button saveButton = new Button("Save", e -> savePerson());
         saveButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         Button cancelButton = new Button("Cancel", e -> formDialog.close());
         cancelButton.addThemeVariants(ButtonVariant.LUMO_ERROR);
 
-        // Form layout
-        FormLayout formLayout = new FormLayout();
-        formLayout.add(firstName, lastName, email, birthDate);
-        formLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
-
         HorizontalLayout buttons = new HorizontalLayout(saveButton, cancelButton);
         buttons.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
 
         formDialog.add(formLayout, buttons);
+        add(formDialog);
 
-        // Configure binder
-        binder.forField(firstName)
-                .asRequired("First name is required")
-                .bind(Person::getFirstName, Person::setFirstName);
-        binder.forField(lastName)
-                .asRequired("Last name is required")
-                .bind(Person::getLastName, Person::setLastName);
-        binder.forField(email)
-                .asRequired("Email is required")
-                .withValidator(e -> e.contains("@"), "Must be a valid email")
+        binder.forField(firstName).asRequired("First name is required").bind(Person::getFirstName, Person::setFirstName);
+        binder.forField(lastName).asRequired("Last name is required").bind(Person::getLastName, Person::setLastName);
+        binder.forField(email).asRequired("Email is required").withValidator(e -> e.contains("@"), "Must be valid email")
                 .bind(Person::getEmail, Person::setEmail);
-        binder.forField(birthDate)
-                .asRequired("Birth date is required")
-                .bind(Person::getBirthDate, Person::setBirthDate);
-    }
-
-    private void setupLayout() {
-        // Add button to open form
-        Button addButton = new Button("Add Person", e -> showForm(new Person()));
-        addButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-
-        // Search field
-        TextField searchField = new TextField();
-        searchField.setPlaceholder("Filter by last name...");
-        searchField.addValueChangeListener(e -> updatePersonList(e.getValue()));
-
-        // Main layout
-        HorizontalLayout toolbar = new HorizontalLayout(addButton, searchField);
-        VerticalLayout mainLayout = new VerticalLayout(
-                toolbar,
-                new HorizontalLayout(personGrid, measurementGrid)
-        );
-        mainLayout.setSizeFull();
-        personGrid.setSizeFull();
-        measurementGrid.setSizeFull();
-
-        add(mainLayout);
+        binder.forField(birthDate).asRequired("Birth date is required").bind(Person::getBirthDate, Person::setBirthDate);
     }
 
     private void showForm(Person person) {
@@ -155,13 +160,9 @@ public class ListView extends VerticalLayout {
 
     private void updatePersonList(String filterText) {
         if (filterText == null || filterText.isEmpty()) {
-            personGrid.setItems(personService.findAll());
+            updatePersonList();
         } else {
             personGrid.setItems(personService.findByLastNameContainingIgnoreCase(filterText));
         }
-    }
-
-    private void updateMeasurementList(Long personId) {
-        measurementGrid.setItems(measurementService.findByPersonId(personId));
     }
 }
